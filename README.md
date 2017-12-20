@@ -53,11 +53,11 @@ Once the file is overwritten, the shared link should be enough to access the fil
 ![](pics/link_copy.png)
 
 This link should stay as:
-'https://www.dropbox.com/s/tly25bf1kp85ibb/output_stories.csv?dl=0'
+'https://www.dropbox.com/s/5sei7sk8asob4qj/output_stories.csv?dl=0'
 
 note, to access the file directly from this link, you will need to view the following URL:
 
-`https://dl.dropboxusercontent.com/1/view/tly25bf1kp85ibb/output_stories.csv`
+`https://dl.dropboxusercontent.com/1/view/5sei7sk8asob4qj/output_stories.csv`
 
 It is the latter URL that should be connected to Carto. This should already be done.
 The file should be set to sync once every day (or whatever your preferred update rate is).

@@ -7,43 +7,53 @@ import pandas as pd
 
 def extract_entry(entry):
     """Given a single entry object (of story type), return a list"""
-    iso = entry.country_list[0]
-    sector_list = entry.sector_list
-    sector_count = len(entry.sector_list)
-    name = iso3166.countries_by_alpha3[iso].name
-    return [iso, name, sector_list, sector_count]
+    try:
+        identifier = entry.id
+    except:
+        identifier = None
+    try:
+        iso = entry.country_list[0]
+        name = iso3166.countries_by_alpha3[iso].name
+    except:
+        iso = None
+        name = None
+    try:
+        sector_list = entry.sector_list
+        sector_count = len(entry.sector_list)
+    except:
+        sector_list = None
+        sector_count = None
+    try:
+        dt = entry.story_date
+        date = str(dt.date())
+        year = dt.year
+    except:
+        date = None
+        year = None
+    return [identifier, iso, name, sector_list, sector_count, date, year]
 
 
-def flatten_list(array_list):
-    """
-       Takes array of lists ([.,.,.],[.,.,.],...) and returns
-        a flattened array [...]
-    """
-    tmp_flattened_list = []
-    for item in array_list:
-        for i in item:
-            tmp_flattened_list.append(i)
-    return tmp_flattened_list
-
-
-def gen_row_of_table(iso, sector_count, all_sectors):
-    """Given an iso, and a counted dictionary of stories for a given is,
+def sector_row_entries(sector_entry, all_sectors):
+    """Given an entry and a list of sectors
         return a row for generating a final output table for Carto,
         and the name of the column also.
     """
-    col_names = ['iso', 'name']
-    iso = iso
-    name = name = iso3166.countries_by_alpha3[iso].name
-    #print(iso, name, '\n')
-    data_row = [iso, name]
+    #print(sector_entry)
+    tmp = []
+    col_names = []
     for sector in sorted(all_sectors):
-        #print(sector)
         col_name = sector.replace(" ", "_").lower()
+        #print(sector, col_name)
         col_names.append(col_name)
-        data_row.append(sector_count.get(sector, 0))
-    col_names.append('total')
-    data_row.append(sum(sector_count.values()))
-    return data_row, col_names
+        found = 0
+        for tag in sector_entry:
+            if tag == sector:
+                #print(f'     found {tag} entry')
+                found = 1
+                tmp.append(1)
+        if found == 0:
+            tmp.append(0)
+    return tmp, col_names
 
 
 def main():
@@ -77,27 +87,36 @@ def main():
         #print(entry)
         tmp_array.append(extract_entry(entry))
     # each row in the below df is a single story
-    df = pd.DataFrame(tmp_array, columns=['iso','name','sector_list',
-                                          'sector_count'])
+    df = pd.DataFrame(tmp_array, columns=['id','iso','country','sector_list',
+                                          'sector_count','date','year'])
     # Iterate through the list of sectors, flatten it, then find the unique set
     all_sectors = []
     for sublist in df.sector_list:
         for item in sublist:
             all_sectors.append(item)
     unique_sectors = set(all_sectors)
-    # Extract a set of the unique iso codes
-    unique_isos = sorted(df.iso.unique())
-    tmp_array = []
-    for iso in unique_isos:
-        print("Extracting ", iso, end="")
-        tmp_df = df[df.iso == iso]
-        print(" found ", len(tmp_df)," stories. ", end="")
-        tmp_sector_list = flatten_list(tmp_df.sector_list.values)
-        sector_count = Counter(tmp_sector_list)
-        print(sector_count)
-        tmp_row, col_names = gen_row_of_table(iso, sector_count, unique_sectors)
-        tmp_array.append(tmp_row)
-    export_df = pd.DataFrame(tmp_array, columns=col_names)
+
+    # Generate a table with one row per story, but seperated tags
+    tmp_row = []
+    for index in df.index:
+        #print(index, df['sector_list'][index], unique_sectors)
+        sector_entries = []
+        sector_entries, sector_names = sector_row_entries(sector_entry = df['sector_list'][index],
+                                                          all_sectors=unique_sectors)
+        sector_entries.append(df['id'][index])
+        sector_entries.append(df['iso'][index])
+        sector_entries.append(df['country'][index])
+        sector_entries.append(df['date'][index])
+        sector_entries.append(df['year'][index])
+        tmp_row.append(sector_entries)
+
+    sector_names.append('id')
+    sector_names.append('iso')
+    sector_names.append('country')
+    sector_names.append('date')
+    sector_names.append('year')
+
+    export_df = pd.DataFrame(tmp_row, columns=sector_names)
     export_df.to_csv('output_stories.csv')
     print('Normal end of program reached.')
 
