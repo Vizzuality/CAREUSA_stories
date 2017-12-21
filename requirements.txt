@@ -1,3 +1,4 @@
 contentful==1.4.3
 iso3166
 pandas==0.21.0
+requests==2.18.4

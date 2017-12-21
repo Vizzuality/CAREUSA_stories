@@ -1,6 +1,6 @@
 # CARE data layer
 
-This software should run periodically in oder to generate a csv file for the production of a story layer.
+This software should run periodically in oder to generate a csv file for the production of a story layer, and automatically upload it to the careusa carto account.
 
 
 ## Requirements
@@ -23,9 +23,11 @@ You will also need a `.env` file with API credentials for Contentful in the same
 ```
 SPACE_ID=XXXXXX
 ACESS_TOKEN=XXXXXX
-
+CARTO_API_KEY =XXXXXXX
 ```
-These keys can be obtained from [Contentful](https://app.contentful.com/spaces/nlip0spjj3b7/api/keys/0x476IPThWIVAOF2zg7PoW).
+The SPACE_ID and ACESS_TOKEN keys can be obtained from [Contentful](https://app.contentful.com/spaces/nlip0spjj3b7/api/keys/0x476IPThWIVAOF2zg7PoW).
+The CARTO_API_KEY can be obtained from within the Carto account.
+These keys can also be obtained by contacting the Vizzuality development team.
 
 ## Running
 
@@ -35,39 +37,18 @@ If your Python is set up, and you have installed the requirements file, you can 
 python carto_layer.py
 ```
 
+A sucessful run will result in the following output, and the table being updated:
+```
+╰─$ python carto_layer.py
+Found  44 stories.
 
-## Syncing the output file to Dropbox
+Created temporary file
+Carto respose 200: Table upload successful
+Cleanup stage - removing temporary file.
+```
 
-After running, the script should produce an output file: `output_stores.csv` in your local directory. We will need to place this in a location in sync with the Care Carto account (`https://careusa.carto.com`).
 
-We have set up a dropbox account:
-
-  - username: `benjamin.laken@vizzuality.com`
-  - password: XXXX (shared on LastPass)
-
-The procedure is to run the python software, and take the `output_stories.csv` file and upload that to the dropbox account, overwriting/replacing the existing file.
-
-Once the file is overwritten, the shared link should be enough to access the file.
-
-![](pics/first_share.png)
-![](pics/link_copy.png)
-
-This link should stay as:
-'https://www.dropbox.com/s/5sei7sk8asob4qj/output_stories.csv?dl=0'
-
-note, to access the file directly from this link, you will need to view the following URL:
-
-`https://dl.dropboxusercontent.com/1/view/5sei7sk8asob4qj/output_stories.csv`
-
-It is the latter URL that should be connected to Carto. This should already be done.
-The file should be set to sync once every day (or whatever your preferred update rate is).
-The table should be `output_stories` in the `careusa` Carto account.
-
-![](pics/carto_connect.png)
-
-![](pics/carto_and_dropbox_link.png)
-
-### Generating a Carto Map layer
+### Generating a Carto Map layer from this table
 
 You can generate a Carto map layer from these data as follows:
 
@@ -79,10 +60,10 @@ import requests
 import json
 
 
-possible_variables_to_select = ['climate_change',
+possible_tags_to_select = ['climate_change',
                                  'economic_development',
                                  'education',
-                                 'emergency_&_disaster_aid',
+                                 'emergency__disaster_aid',
                                  'food_security',
                                  'grand_prize',
                                  'health',
@@ -90,40 +71,43 @@ possible_variables_to_select = ['climate_change',
                                  'total']
 
 
+
+year = 2016
 var_to_view = 'total'  # <-- E.g. of selecting a variable for the layer
+tag = 'education'
 
 query=(f"WITH data AS "
-       f"(SELECT * FROM output_stories) "
+       f"(SELECT iso, COUNT(year) as value FROM output_stories "
+       f"WHERE year = {year} "
+      # f"AND {tag} = true "
+       f"GROUP BY iso) "
        f"SELECT map.iso, map.cartodb_id, ST_CENTROID(map.the_geom_webmercator) AS the_geom_webmercator, "
-       f"data.{var_to_view} as value, data.name "
+       f"data.value as value "
        f"from world_complete_1 AS map "
        f"INNER JOIN data "
        f"ON data.iso = map.iso")
 print(query)
 
 style = ("#test_stories{"
-          "marker-fill-opacity: 1.0;"
-          "marker-line-color: #EFC8B2;"
-          "marker-line-width: 5;"
-          "marker-line-opacity: 1.0;"
-          "marker-placement: point;"
-          "marker-type: ellipse;"
-          "marker-width: 40;"
-          "marker-fill: #F25A0D;"
-          "marker-allow-overlap: true; }"
-
-        "#test_stories::labels {"
-         " text-name: [value];"
-        "  text-face-name: 'DejaVu Sans Book';"
-        "  text-size: 10;"
-        "  text-label-position-tolerance: 10;"
-        "  text-fill: #000;"
-        "  text-halo-fill: #FFF;"
-        "  text-halo-radius: 1;"
-        "  text-dy: 0;"
-        "  text-allow-overlap: true;"
-        "  text-placement: point;"
-        "  text-placement-type: simple;}"
+           "marker-fill-opacity: 1.0;"
+           "marker-line-color: #f46508;"
+           "marker-line-width: 5;"
+           "marker-line-opacity: 0.2;"
+           "marker-placement: point;"
+           "marker-type: ellipse;"
+           "marker-width: 40;"
+           "marker-fill: #F25A0D;"
+           "marker-allow-overlap: true;}"
+        " #test_stories::labels {"
+           "text-name: [value];"
+           "text-face-name: 'Open Sans Regular';"
+           "text-size: 16;"
+           "text-label-position-tolerance: 10;"
+           "text-fill: #FFFFFF;"
+           "text-dy: 0;"
+           "text-allow-overlap: true;"
+           "text-placement: point;"
+           "text-placement-type: simple;}"
         )
 account = 'careusa'
 urlCarto = 'https://'+account+'.carto.com/api/v1/map'

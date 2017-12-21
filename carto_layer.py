@@ -3,6 +3,11 @@ from iso3166 import countries
 from collections import Counter
 import iso3166
 import pandas as pd
+import requests
+import os
+
+
+output_file = 'output_stories.csv'
 
 
 def extract_entry(entry):
@@ -50,10 +55,26 @@ def sector_row_entries(sector_entry, all_sectors):
             if tag == sector:
                 #print(f'     found {tag} entry')
                 found = 1
-                tmp.append(1)
+                tmp.append(True)
         if found == 0:
-            tmp.append(0)
+            tmp.append(False)
     return tmp, col_names
+
+
+def upload_to_carto(APIKEY):
+    """Use the Carto API to upload a local csv file to the careusa account"""
+    url = "https://careusa.carto.com/api/v1/imports"
+    params = {'api_key': APIKEY,
+              'privacy':'public',
+              'collision_strategy':'overwrite'}
+    files = {'file': open(output_file,'rb')}
+    r = requests.post(url=url,files=files, params=params)
+
+    if r.status_code == 200:
+        print(f"Carto respose {r.status_code}: Table upload successful")
+        #print(r.url)
+    else:
+        print(f"Table upload failed - Carto response {r.status_code}")
 
 
 def main():
@@ -72,9 +93,12 @@ def main():
             ACCESS_TOKEN = item.split()[-1]
         if item.split()[0] == 'SPACE_ID':
             SPACE_ID = item.split()[-1]
+        if item.split()[0] == 'CARTO_API_KEY':
+            CARTO_API_KEY = item.split()[-1]
 
     assert ACCESS_TOKEN, 'failed to find ACCESS_TOKEN'
     assert SPACE_ID, 'failed to find SPACE_ID'
+    assert CARTO_API_KEY, 'failed to find CARTO_API_KEY'
 
     # Create your Contentful Delivery API Client
     client = contentful.Client(SPACE_ID, ACCESS_TOKEN)
@@ -117,9 +141,14 @@ def main():
     sector_names.append('year')
 
     export_df = pd.DataFrame(tmp_row, columns=sector_names)
-    export_df.to_csv('output_stories.csv')
-    print('Normal end of program reached.')
+    export_df.to_csv(output_file, index=False)
+    print('Created temporary file')
 
+    upload_to_carto(APIKEY=CARTO_API_KEY)
+
+    if os.path.exists(output_file):
+        print('Cleanup stage - removing temporary file.')
+        os.remove(output_file)
 
 if __name__ == '__main__':
     main()
