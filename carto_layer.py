@@ -5,7 +5,8 @@ import iso3166
 import pandas as pd
 import requests
 import os
-
+import time
+from pprint import pprint
 
 output_file = 'output_stories.csv'
 
@@ -48,6 +49,8 @@ def sector_row_entries(sector_entry, all_sectors):
     col_names = []
     for sector in sorted(all_sectors):
         col_name = sector.replace(" ", "_").lower()
+        if col_name == 'emergency_&_disaster_aid':
+            col_name = 'emergency__disaster_aid'
         #print(sector, col_name)
         col_names.append(col_name)
         found = 0
@@ -61,6 +64,23 @@ def sector_row_entries(sector_entry, all_sectors):
     return tmp, col_names
 
 
+# Carto management functions
+
+def drop_existing_carto_table(APIKEY, target_table='output_stories'):
+    print(f'Attempting to erase {target_table}')
+    url = 'https://careusa.carto.com/api/v2/sql'
+    params = {'q':f"DROP TABLE {target_table}",
+              'api_key': APIKEY,}
+    r = requests.get(url=url, params=params)
+    #print(r.url)
+    if r.status_code == 200:
+        print(f'Sucsessfully droped the existing carto table {target_table}')
+        return None
+    else:
+        print(f"Unable to drop {target_table} table. Status: {r.status_code}")
+        return "DROP TABLE failed"
+
+
 def upload_to_carto(APIKEY):
     """Use the Carto API to upload a local csv file to the careusa account"""
     url = "https://careusa.carto.com/api/v1/imports"
@@ -72,9 +92,24 @@ def upload_to_carto(APIKEY):
 
     if r.status_code == 200:
         print(f"Carto respose {r.status_code}: Table upload successful")
-        #print(r.url)
+        pprint(r.json())
+        return r.json().get('item_queue_id')
     else:
         print(f"Table upload failed - Carto response {r.status_code}")
+
+
+def upload_report(queue_id, APIKEY):
+    """Uses the carto queue id to report on status of file upload"""
+    if queue_id:
+        params = {'api_key': APIKEY}
+        print('Report on status of uploaded file ingestion:')
+        url = f"https://careusa.carto.com/api/v1/imports/{queue_id}"
+        r2 = requests.get(url=url, params=params)
+        print(r2.status_code)
+        pprint(r2.json())
+        return None
+    else:
+        return None
 
 
 def main():
@@ -142,12 +177,19 @@ def main():
 
     export_df = pd.DataFrame(tmp_row, columns=sector_names)
     export_df.to_csv(output_file, index=False)
-    print('Created temporary file')
-
-    upload_to_carto(APIKEY=CARTO_API_KEY)
-
+    print('Created temporary file. Starting Carto update process.')
+    report = drop_existing_carto_table(APIKEY=CARTO_API_KEY) # First, remove the existing table
+    if report:
+        print('Table drop failed. Will try and continue with the run, but there may be a problem.')
+    print('Please wait...')
+    time.sleep(10)            # wait a few seconds
+    print('Uploading new table.')
+    queue_id = upload_to_carto(APIKEY=CARTO_API_KEY)
+    print('Waiting several seconds for file to process, then I will retrieve a report on the status:\n')
+    time.sleep(10)
+    upload_report(queue_id, APIKEY=CARTO_API_KEY)
     if os.path.exists(output_file):
-        print('Cleanup stage - removing temporary file.')
+        print(f'Cleanup - removed temporary {output_file} file.')
         os.remove(output_file)
 
 if __name__ == '__main__':
