@@ -37,14 +37,50 @@ If your Python is set up, and you have installed the requirements file, you can 
 python carto_layer.py
 ```
 
-A sucessful run will result in the following output, and the table being updated:
+A successful run will result in something like the following output,
+and the table being updated:
 ```
 ╰─$ python carto_layer.py
-Found  44 stories.
 
-Created temporary file
+Found  60 stories.
+
+Created temporary file. Starting Carto update process.
+Attempting to erase output_stories
+Unable to drop output_stories table. Status: 400
+Table drop failed. Will try and continue with the run, but there may be a problem.
+Please wait...
+Uploading new table.
 Carto respose 200: Table upload successful
-Cleanup stage - removing temporary file.
+{'item_queue_id': 'XXX', 'success': True}
+Waiting several seconds for file to process, then I will retrieve a report on the status:
+
+Report on status of uploaded file ingestion:
+200
+{'any_table_raster': False,
+ 'content_guessing': False,
+ 'create_visualization': False,
+ 'data_type': 'url',
+ 'derived_visualization_id': None,
+ 'display_name': 'output_stories.csv',
+ 'error_code': None,
+ 'get_error_text': None,
+ 'id': 'XXX',
+ 'is_raster': False,
+ 'original_url': 'http://s3.amazonaws.com/com.cartodb.imports.production/36170eb1b201edcb1084/output_stories.csv?AWSAccessKeyId=XXX&Expires=XXX',
+ 'queue_id': 'XXX',
+ 'quoted_fields_guessing': True,
+ 'state': 'complete',
+ 'success': True,
+ 'synchronization_id': None,
+ 'table_id': 'XXX',
+ 'table_name': 'output_stories',
+ 'tables_created_count': 1,
+ 'type_guessing': True,
+ 'user_defined_limits': '{"twitter_credits_limit":0}',
+ 'user_id': 'XXX',
+ 'visualization_id': None,
+ 'warnings': None}
+Cleanup - removed temporary output_stories.csv file.
 ```
 
 
